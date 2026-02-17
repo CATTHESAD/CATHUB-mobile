@@ -1,97 +1,161 @@
 -- ========================================
--- 🩸 CATHUD MOBILE - FIX DEFINITIVO DE VISIBILIDADE
+-- 🩸 CATHUD MOBILE - VERSÃO FINAL COMPLETA
 -- ========================================
 
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Deleta versões antigas para não dar conflito
-if playerGui:FindFirstChild("CATHUD_MOBILE_FIX") then
-    playerGui.CATHUD_MOBILE_FIX:Destroy()
-end
+-- Limpeza de versões antigas
+if playerGui:FindFirstChild("CATHUD_V3") then playerGui.CATHUD_V3:Destroy() end
+
+-- Configurações Iniciais
+local flying = false
+local noclip = false
+local speed = 70
+local walkSpeed = 16
+local jumpPower = 50
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "CATHUD_MOBILE_FIX"
+gui.Name = "CATHUD_V3"
 gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true 
-gui.DisplayOrder = 999 -- Força ficar na frente de tudo
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999
 gui.Parent = playerGui
 
--- ÍCONE (Aumentado para facilitar o toque no celular)
-local hudIcon = Instance.new("TextButton")
-hudIcon.Size = UDim2.new(0, 60, 0, 60)
-hudIcon.Position = UDim2.new(0.05, 0, 0.3, 0)
-hudIcon.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-hudIcon.Text = "🩸"
-hudIcon.TextScaled = true
-hudIcon.ZIndex = 1001 -- Garante que o ícone seja clicável
-hudIcon.Parent = gui
-Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1, 0)
+-- ÍCONE FLUTUANTE
+local icon = Instance.new("TextButton")
+icon.Size = UDim2.new(0, 60, 0, 60)
+icon.Position = UDim2.new(0.05, 0, 0.2, 0)
+icon.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+icon.Text = "🩸"
+icon.TextScaled = true
+icon.Parent = gui
+Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
--- MENU PRINCIPAL
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0.6, 0, 0.5, 0)
-mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
-mainFrame.BorderSizePixel = 2
-mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
-mainFrame.Visible = false -- Começa invisível
-mainFrame.ZIndex = 1000
-mainFrame.Parent = gui
+-- MENU PRINCIPAL (LISTA COM ROLAGEM)
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0.6, 0, 0.7, 0)
+main.Position = UDim2.new(0.5, 0, 0.5, 0)
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+main.Visible = false
+main.Parent = gui
+Instance.new("UICorner", main)
 
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0.05, 0)
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(0.9, 0, 0.8, 0)
+scroll.Position = UDim2.new(0.05, 0, 0.15, 0)
+scroll.BackgroundTransparency = 1
+scroll.CanvasSize = UDim2.new(0, 0, 1.5, 0) -- Permite rolar para baixo
+scroll.ScrollBarThickness = 5
+scroll.Parent = main
 
--- BOTÃO DE FECHAR (Dentro do Menu)
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0.15, 0, 0.15, 0)
-closeBtn.Position = UDim2.new(0.85, 0, 0, 0)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.new(1, 1, 1)
-closeBtn.TextScaled = true
-closeBtn.Parent = mainFrame
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 15)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- LOGO
-local label = Instance.new("TextLabel")
-label.Size = UDim2.new(1, 0, 0.2, 0)
-label.Text = "CATHUD MOBILE"
-label.TextColor3 = Color3.new(1, 0, 0)
-label.BackgroundTransparency = 1
-label.TextScaled = true
-label.Parent = mainFrame
-
--- FUNÇÃO DE ALTERNAR VISIBILIDADE (CORRIGIDA)
-local function toggleGui()
-    mainFrame.Visible = not mainFrame.Visible
-    print("HUD Status: ", mainFrame.Visible) -- Debug no Console
-end
-
-hudIcon.MouseButton1Click:Connect(toggleGui)
-closeBtn.MouseButton1Click:Connect(toggleGui)
-
--- BOTÕES DE FUNÇÃO
-local function createButton(txt, yPos, callback)
+-- FUNÇÃO PARA CRIAR BOTÕES
+local function createBtn(name, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.8, 0, 0.2, 0)
-    btn.Position = UDim2.new(0.1, 0, yPos, 0)
-    btn.Text = txt
-    btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+    btn.Size = UDim2.new(0.9, 0, 0, 50)
+    btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    btn.Text = name
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.TextScaled = true
-    btn.Parent = mainFrame
+    btn.Parent = scroll
     btn.MouseButton1Click:Connect(callback)
     Instance.new("UICorner", btn)
+    return btn
 end
 
--- Exemplos de funções
-createButton("VOAR (FLY)", 0.3, function()
-    print("Fly ativado!")
-    -- Lógica de voo aqui
+-- FUNÇÃO PARA CRIAR SLIDERS (TOUCH OK)
+local function createSlider(txt, min, max, start, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0.9, 0, 0, 70)
+    container.BackgroundTransparency = 1
+    container.Parent = scroll
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0.4, 0)
+    label.Text = txt .. ": " .. start
+    label.TextColor3 = Color3.new(1,0,0)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.Parent = container
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0.2, 0)
+    bar.Position = UDim2.new(0, 0, 0.6, 0)
+    bar.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    bar.Parent = container
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 30, 0, 30)
+    dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.Position = UDim2.new((start-min)/(max-min), 0, 0.5, 0)
+    dot.BackgroundColor3 = Color3.new(1, 0, 0)
+    dot.Parent = bar
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+    local function update(input)
+        local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        dot.Position = UDim2.new(pos, 0, 0.5, 0)
+        local val = math.floor(min + (max - min) * pos)
+        label.Text = txt .. ": " .. val
+        callback(val)
+    end
+
+    dot.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local move = UIS.InputChanged:Connect(function(m)
+                if m.UserInputType == Enum.UserInputType.Touch or m.UserInputType == Enum.UserInputType.MouseMovement then
+                    update(m)
+                end
+            end)
+            UIS.InputEnded:Connect(function(e)
+                if e.UserInputType == Enum.UserInputType.Touch or e.UserInputType == Enum.UserInputType.MouseButton1 then move:Disconnect() end
+            end)
+        end
+    end)
+end
+
+-- ATRIBUIÇÃO DAS FUNÇÕES
+createBtn("VOAR (FLY)", function()
+    flying = not flying
+    if flying then
+        local bv = Instance.new("BodyVelocity", player.Character.HumanoidRootPart)
+        bv.Name = "CATHUD_FLY"
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        RunService:BindToRenderStep("Fly", 1, function()
+            bv.Velocity = workspace.CurrentCamera.CFrame.LookVector * speed
+        end)
+    else
+        RunService:UnbindFromRenderStep("Fly")
+        if player.Character.HumanoidRootPart:FindFirstChild("CATHUD_FLY") then
+            player.Character.HumanoidRootPart.CATHUD_FLY:Destroy()
+        end
+    end
 end)
 
-createButton("ATRAVESSAR TUDO", 0.6, function()
-    print("Noclip ativado!")
+createBtn("ATRAVESSAR (NOCLIP)", function()
+    noclip = not noclip
+    RunService.Stepped:Connect(function()
+        if noclip and player.Character then
+            for _, v in pairs(player.Character:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end)
+end)
+
+createSlider("Velocidade Voo", 10, 300, 70, function(v) speed = v end)
+createSlider("Velocidade Andar", 16, 200, 16, function(v) player.Character.Humanoid.WalkSpeed = v end)
+createSlider("Altura Pulo", 50, 300, 50, function(v) player.Character.Humanoid.JumpPower = v end)
+
+-- Alternar Menu
+icon.MouseButton1Click:Connect(function()
+    main.Visible = not main.Visible
 end)
