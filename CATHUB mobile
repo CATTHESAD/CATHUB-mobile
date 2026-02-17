@@ -1,204 +1,112 @@
 -- ========================================
--- 🩸 CATHUD MOBILE EDITION (OTIMIZADO)
+-- 🩸 CATHUD MOBILE FIX (VERSÃO ESTÁVEL)
 -- ========================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-
 local player = Players.LocalPlayer
+
+-- Espera o PlayerGui carregar completamente antes de iniciar
+local playerGui = player:WaitForChild("PlayerGui")
 
 -- ================= VARIÁVEIS =================
 local flying = false
 local noclip = false
-local speed, minSpeed, maxSpeed = 70, 10, 200
-local walkSpeed, minWalkSpeed, maxWalkSpeed = 16, 8, 100
-local jumpPower, minJumpPower, maxJumpPower = 50, 20, 200
-
-local character, humanoid, root
-local bodyVelocity, bodyGyro
-local flyConnection, noclipConnection
+local speed = 70
+local walkSpeed = 16
+local jumpPower = 50
 
 -- ================= GUI PRINCIPAL =================
+-- Criando a ScreenGui com DisplayOrder alto para ficar acima de tudo
 local gui = Instance.new("ScreenGui")
-gui.Name = "CATHUD_MOBILE"
+gui.Name = "CATHUD_MOBILE_FIX"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.IgnoreGuiInset = true -- Faz a GUI ignorar a barra superior do Roblox
+gui.DisplayOrder = 100 -- Garante que apareça sobre outras interfaces
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.Parent = playerGui
 
--- ÍCONE FLUTUANTE (ABRIR/FECHAR)
+-- ÍCONE PARA ABRIR (Posição relativa em Scale para não sumir)
 local hudIcon = Instance.new("TextButton")
-hudIcon.Size = UDim2.new(0,55,0,55)
-hudIcon.Position = UDim2.new(0.05,0,0.15,0)
-hudIcon.BackgroundColor3 = Color3.fromRGB(150,0,0)
+hudIcon.Size = UDim2.new(0.12, 0, 0.12, 0) -- Tamanho proporcional à tela
+hudIcon.Position = UDim2.new(0.05, 0, 0.2, 0)
+hudIcon.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 hudIcon.Text = "🩸"
 hudIcon.TextScaled = true
 hudIcon.Parent = gui
-Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1,0)
+Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1, 0)
 
+-- MENU PRINCIPAL (Usando Scale para responsividade total)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0,320,0,450) -- Tamanho otimizado para celular
-mainFrame.Position = UDim2.new(0.5,0,0.5,0)
-mainFrame.AnchorPoint = Vector2.new(0.5,0.5)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20,0,0)
-mainFrame.BorderSizePixel = 2
+mainFrame.Size = UDim2.new(0.7, 0, 0.6, 0) -- 70% da largura e 60% da altura
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 0, 0)
+mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = gui
 
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,15)
+local uiCorner = Instance.new("UICorner", mainFrame)
+uiCorner.CornerRadius = UDim.new(0.05, 0)
 
--- BOTÕES DE VOO (SÓ APARECEM NO FLY)
-local flyControls = Instance.new("Frame")
-flyControls.Size = UDim2.new(0,60,0,130)
-flyControls.Position = UDim2.new(0.85,0,0.5,0)
-flyControls.BackgroundTransparency = 1
-flyControls.Visible = false
-flyControls.Parent = gui
-
-local function createFlyBtn(text, pos, val)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,0,0.45,0)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(150,0,0)
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Parent = flyControls
-    Instance.new("UICorner", btn)
-    return btn
-end
-
-local btnUp = createFlyBtn("UP", UDim2.new(0,0,0,0))
-local btnDown = createFlyBtn("DN", UDim2.new(0,0,0.55,0))
-
-local moveUp, moveDown = 0, 0
-btnUp.MouseButton1Down:Connect(function() moveUp = 1 end)
-btnUp.MouseButton1Up:Connect(function() moveUp = 0 end)
-btnDown.MouseButton1Down:Connect(function() moveDown = 1 end)
-btnDown.MouseButton1Up:Connect(function() moveDown = 0 end)
-
--- ================= SLIDER MOBILE =================
-local function createSlider(yPos, minValue, maxValue, value, text, callback)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.9,0,0,25)
-    label.Position = UDim2.new(0.05,0,0,yPos)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255,0,0)
-    label.Text = text.." "..value
-    label.Parent = mainFrame
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0.8,0,0,10)
-    bar.Position = UDim2.new(0.1,0,0,yPos+30)
-    bar.BackgroundColor3 = Color3.fromRGB(60,0,0)
-    bar.Parent = mainFrame
-
-    local handle = Instance.new("Frame")
-    handle.Size = UDim2.new(0,25,0,25)
-    handle.AnchorPoint = Vector2.new(0.5,0.5)
-    handle.Position = UDim2.new((value-minValue)/(maxValue-minValue),0,0.5,0)
-    handle.BackgroundColor3 = Color3.fromRGB(255,0,0)
-    handle.Parent = bar
-    Instance.new("UICorner", handle).CornerRadius = UDim.new(1,0)
-
-    local function update(input)
-        local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        handle.Position = UDim2.new(pos, 0, 0.5, 0)
-        local nVal = math.floor(minValue + (maxValue - minValue) * pos)
-        label.Text = text.." "..nVal
-        callback(nVal)
-    end
-
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local moveCon
-            moveCon = UserInputService.InputChanged:Connect(function(move)
-                if move.UserInputType == Enum.UserInputType.Touch or move.UserInputType == Enum.UserInputType.MouseMovement then
-                    update(move)
-                end
-            end)
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then moveCon:Disconnect() end
-            end)
-        end
-    end)
-end
-
--- CONFIGURAÇÃO DOS SLIDERS
-createSlider(80, minSpeed, maxSpeed, speed, "Voo:", function(v) speed = v end)
-createSlider(160, minWalkSpeed, maxWalkSpeed, walkSpeed, function(v) 
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = v
-    end
-end)
-createSlider(240, minJumpPower, maxJumpPower, jumpPower, "Pulo:", function(v)
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = v
-    end
-end)
+-- TÍTULO
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0.2, 0)
+title.BackgroundTransparency = 1
+title.Text = "🩸 CATHUD MOBILE"
+title.TextColor3 = Color3.new(1, 0, 0)
+title.TextScaled = true
+title.Parent = mainFrame
 
 -- ================= FUNÇÕES FLY / NOCLIP =================
 local function toggleFly()
     flying = not flying
-    flyControls.Visible = flying
     if flying then
-        character = player.Character
-        root = character:WaitForChild("HumanoidRootPart")
-        humanoid = character:WaitForChild("Humanoid")
-        humanoid.PlatformStand = true
+        local root = player.Character:WaitForChild("HumanoidRootPart")
+        local bv = Instance.new("BodyVelocity", root)
+        bv.Name = "FlyVelocity"
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
         
-        bodyVelocity = Instance.new("BodyVelocity", root)
-        bodyVelocity.MaxForce = Vector3.new(9e9,9e9,9e9)
-        bodyGyro = Instance.new("BodyGyro", root)
-        bodyGyro.MaxTorque = Vector3.new(9e9,9e9,9e9)
-        bodyGyro.P = 10000
-
-        flyConnection = RunService.RenderStepped:Connect(function()
+        RunService:BindToRenderStep("FlyStep", 1, function()
             local cam = workspace.CurrentCamera
-            -- No Mobile, o voo vai pra onde a câmera aponta + botões UP/DN
-            local dir = (cam.CFrame.LookVector * 1) + (Vector3.new(0,1,0) * (moveUp - moveDown))
-            bodyVelocity.Velocity = dir * speed
-            bodyGyro.CFrame = cam.CFrame
+            bv.Velocity = cam.CFrame.LookVector * speed
         end)
     else
-        if flyConnection then flyConnection:Disconnect() end
-        if bodyVelocity then bodyVelocity:Destroy() end
-        if bodyGyro then bodyGyro:Destroy() end
-        if player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.PlatformStand = false
+        RunService:UnbindFromRenderStep("FlyStep")
+        if player.Character.HumanoidRootPart:FindFirstChild("FlyVelocity") then
+            player.Character.HumanoidRootPart.FlyVelocity:Destroy()
         end
     end
 end
 
-local function toggleNoclip()
-    noclip = not noclip
-    if noclip then
-        noclipConnection = RunService.Stepped:Connect(function()
-            if player.Character then
-                for _, v in pairs(player.Character:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
-                end
-            end
-        end)
-    else
-        if noclipConnection then noclipConnection:Disconnect() end
-    end
+-- BOTÕES DE ATIVAÇÃO
+local function createBtn(name, pos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.4, 0, 0.2, 0)
+    btn.Position = pos
+    btn.Text = name
+    btn.TextScaled = true
+    btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Parent = mainFrame
+    btn.MouseButton1Click:Connect(callback)
+    Instance.new("UICorner", btn)
 end
 
--- BOTÕES FINAIS
-local btnFly = Instance.new("TextButton")
-btnFly.Size = UDim2.new(0.4,0,0,50)
-btnFly.Position = UDim2.new(0.05,0,0.85,0)
-btnFly.Text = "Fly"
-btnFly.Parent = mainFrame
-btnFly.MouseButton1Click:Connect(toggleFly)
+createBtn("FLY", UDim2.new(0.05, 0, 0.4, 0), toggleFly)
+createBtn("NOCLIP", UDim2.new(0.55, 0, 0.4, 0), function()
+    noclip = not noclip
+    RunService.Stepped:Connect(function()
+        if noclip and player.Character then
+            for _, v in pairs(player.Character:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end)
+end)
 
-local btnClip = Instance.new("TextButton")
-btnClip.Size = UDim2.new(0.4,0,0,50)
-btnClip.Position = UDim2.new(0.55,0,0.85,0)
-btnClip.Text = "Noclip"
-btnClip.Parent = mainFrame
-btnClip.MouseButton1Click:Connect(toggleNoclip)
-
+-- INTERAÇÃO DO ÍCONE
 hudIcon.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
 end)
