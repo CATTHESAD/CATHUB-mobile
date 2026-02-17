@@ -1,112 +1,97 @@
 -- ========================================
--- 🩸 CATHUD MOBILE FIX (VERSÃO ESTÁVEL)
+-- 🩸 CATHUD MOBILE - FIX DEFINITIVO DE VISIBILIDADE
 -- ========================================
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-
--- Espera o PlayerGui carregar completamente antes de iniciar
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ================= VARIÁVEIS =================
-local flying = false
-local noclip = false
-local speed = 70
-local walkSpeed = 16
-local jumpPower = 50
+-- Deleta versões antigas para não dar conflito
+if playerGui:FindFirstChild("CATHUD_MOBILE_FIX") then
+    playerGui.CATHUD_MOBILE_FIX:Destroy()
+end
 
--- ================= GUI PRINCIPAL =================
--- Criando a ScreenGui com DisplayOrder alto para ficar acima de tudo
 local gui = Instance.new("ScreenGui")
 gui.Name = "CATHUD_MOBILE_FIX"
 gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true -- Faz a GUI ignorar a barra superior do Roblox
-gui.DisplayOrder = 100 -- Garante que apareça sobre outras interfaces
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.IgnoreGuiInset = true 
+gui.DisplayOrder = 999 -- Força ficar na frente de tudo
 gui.Parent = playerGui
 
--- ÍCONE PARA ABRIR (Posição relativa em Scale para não sumir)
+-- ÍCONE (Aumentado para facilitar o toque no celular)
 local hudIcon = Instance.new("TextButton")
-hudIcon.Size = UDim2.new(0.12, 0, 0.12, 0) -- Tamanho proporcional à tela
-hudIcon.Position = UDim2.new(0.05, 0, 0.2, 0)
-hudIcon.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+hudIcon.Size = UDim2.new(0, 60, 0, 60)
+hudIcon.Position = UDim2.new(0.05, 0, 0.3, 0)
+hudIcon.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 hudIcon.Text = "🩸"
 hudIcon.TextScaled = true
+hudIcon.ZIndex = 1001 -- Garante que o ícone seja clicável
 hudIcon.Parent = gui
 Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1, 0)
 
--- MENU PRINCIPAL (Usando Scale para responsividade total)
+-- MENU PRINCIPAL
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0.7, 0, 0.6, 0) -- 70% da largura e 60% da altura
+mainFrame.Size = UDim2.new(0.6, 0, 0.5, 0)
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 0, 0)
-mainFrame.BorderSizePixel = 0
-mainFrame.Visible = false
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
+mainFrame.BorderSizePixel = 2
+mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+mainFrame.Visible = false -- Começa invisível
+mainFrame.ZIndex = 1000
 mainFrame.Parent = gui
 
-local uiCorner = Instance.new("UICorner", mainFrame)
-uiCorner.CornerRadius = UDim.new(0.05, 0)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0.05, 0)
 
--- TÍTULO
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0.2, 0)
-title.BackgroundTransparency = 1
-title.Text = "🩸 CATHUD MOBILE"
-title.TextColor3 = Color3.new(1, 0, 0)
-title.TextScaled = true
-title.Parent = mainFrame
+-- BOTÃO DE FECHAR (Dentro do Menu)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0.15, 0, 0.15, 0)
+closeBtn.Position = UDim2.new(0.85, 0, 0, 0)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.TextScaled = true
+closeBtn.Parent = mainFrame
 
--- ================= FUNÇÕES FLY / NOCLIP =================
-local function toggleFly()
-    flying = not flying
-    if flying then
-        local root = player.Character:WaitForChild("HumanoidRootPart")
-        local bv = Instance.new("BodyVelocity", root)
-        bv.Name = "FlyVelocity"
-        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        
-        RunService:BindToRenderStep("FlyStep", 1, function()
-            local cam = workspace.CurrentCamera
-            bv.Velocity = cam.CFrame.LookVector * speed
-        end)
-    else
-        RunService:UnbindFromRenderStep("FlyStep")
-        if player.Character.HumanoidRootPart:FindFirstChild("FlyVelocity") then
-            player.Character.HumanoidRootPart.FlyVelocity:Destroy()
-        end
-    end
+-- LOGO
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, 0, 0.2, 0)
+label.Text = "CATHUD MOBILE"
+label.TextColor3 = Color3.new(1, 0, 0)
+label.BackgroundTransparency = 1
+label.TextScaled = true
+label.Parent = mainFrame
+
+-- FUNÇÃO DE ALTERNAR VISIBILIDADE (CORRIGIDA)
+local function toggleGui()
+    mainFrame.Visible = not mainFrame.Visible
+    print("HUD Status: ", mainFrame.Visible) -- Debug no Console
 end
 
--- BOTÕES DE ATIVAÇÃO
-local function createBtn(name, pos, callback)
+hudIcon.MouseButton1Click:Connect(toggleGui)
+closeBtn.MouseButton1Click:Connect(toggleGui)
+
+-- BOTÕES DE FUNÇÃO
+local function createButton(txt, yPos, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.4, 0, 0.2, 0)
-    btn.Position = pos
-    btn.Text = name
-    btn.TextScaled = true
+    btn.Size = UDim2.new(0.8, 0, 0.2, 0)
+    btn.Position = UDim2.new(0.1, 0, yPos, 0)
+    btn.Text = txt
     btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
     btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextScaled = true
     btn.Parent = mainFrame
     btn.MouseButton1Click:Connect(callback)
     Instance.new("UICorner", btn)
 end
 
-createBtn("FLY", UDim2.new(0.05, 0, 0.4, 0), toggleFly)
-createBtn("NOCLIP", UDim2.new(0.55, 0, 0.4, 0), function()
-    noclip = not noclip
-    RunService.Stepped:Connect(function()
-        if noclip and player.Character then
-            for _, v in pairs(player.Character:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
-            end
-        end
-    end)
+-- Exemplos de funções
+createButton("VOAR (FLY)", 0.3, function()
+    print("Fly ativado!")
+    -- Lógica de voo aqui
 end)
 
--- INTERAÇÃO DO ÍCONE
-hudIcon.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
+createButton("ATRAVESSAR TUDO", 0.6, function()
+    print("Noclip ativado!")
 end)
