@@ -1,0 +1,245 @@
+-- ========================================
+-- 🩸 CATHUD MOBILE PRO (RESPONSIVO)
+-- ========================================
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- ================= VARIÁVEIS =================
+local flying = false
+local noclip = false
+local speed = 70
+local walkSpeed = 16
+local jumpPower = 50
+
+local character, humanoid, root
+local bodyVelocity, bodyGyro
+local flyConnection, noclipConnection
+
+local moveVector = Vector3.zero
+
+-- ================= GUI BASE =================
+local gui = Instance.new("ScreenGui")
+gui.Name = "CATHUD_MOBILE_PRO"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- ================= BOTÃO FLUTUANTE =================
+local hudIcon = Instance.new("TextButton")
+hudIcon.Size = UDim2.fromScale(0.1,0.07)
+hudIcon.Position = UDim2.fromScale(0.88,0.45)
+hudIcon.BackgroundColor3 = Color3.fromRGB(150,0,0)
+hudIcon.Text = "🩸"
+hudIcon.TextScaled = true
+hudIcon.Parent = gui
+Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1,0)
+
+-- ================= HUD RESPONSIVO =================
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.fromScale(0.9,0.8)
+mainFrame.Position = UDim2.fromScale(0.5,0.5)
+mainFrame.AnchorPoint = Vector2.new(0.5,0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20,0,0)
+mainFrame.Visible = false
+mainFrame.Parent = gui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0.05,0)
+
+hudIcon.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+-- ================= LAYOUT AUTOMÁTICO =================
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0.03,0)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.Parent = mainFrame
+
+-- ================= SLIDER RESPONSIVO =================
+local function createSlider(minValue,maxValue,value,text,callback)
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.fromScale(0.9,0.12)
+	container.BackgroundTransparency = 1
+	container.Parent = mainFrame
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1,0.4)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(255,0,0)
+	label.TextScaled = true
+	label.Text = text.." "..value
+	label.Parent = container
+
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.fromScale(1,0.25)
+	bar.Position = UDim2.fromScale(0,0.6)
+	bar.BackgroundColor3 = Color3.fromRGB(60,0,0)
+	bar.Parent = container
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(1,0)
+
+	local handle = Instance.new("Frame")
+	handle.Size = UDim2.fromScale(0.08,1.8)
+	handle.AnchorPoint = Vector2.new(0.5,0.5)
+	handle.Position = UDim2.new((value-minValue)/(maxValue-minValue),0,0.5,0)
+	handle.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	handle.Parent = bar
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(1,0)
+
+	local dragging = false
+
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.Touch then
+			local percent = math.clamp(
+				(input.Position.X - bar.AbsolutePosition.X) /
+				bar.AbsoluteSize.X,0,1)
+
+			local newValue = math.floor(minValue + (maxValue-minValue)*percent)
+
+			handle.Position = UDim2.new(percent,0,0.5,0)
+			label.Text = text.." "..newValue
+			callback(newValue)
+		end
+	end)
+end
+
+-- Criar sliders
+createSlider(10,200,speed,"Velocidade Voo:",function(v) speed=v end)
+createSlider(8,100,walkSpeed,"Velocidade Andar:",function(v)
+	walkSpeed=v
+	if humanoid then humanoid.WalkSpeed=v end
+end)
+createSlider(20,200,jumpPower,"Altura Pulo:",function(v)
+	jumpPower=v
+	if humanoid then humanoid.JumpPower=v end
+end)
+
+-- ================= BOTÕES =================
+local function createButton(text,callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(0.9,0.1)
+	btn.BackgroundColor3 = Color3.fromRGB(150,0,0)
+	btn.TextScaled = true
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Text = text
+	btn.Parent = mainFrame
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0.3,0)
+	btn.MouseButton1Click:Connect(callback)
+end
+
+createButton("🛫 Fly",function()
+	flying = not flying
+	if flying then
+		character = player.Character
+		humanoid = character:WaitForChild("Humanoid")
+		root = character:WaitForChild("HumanoidRootPart")
+		humanoid.PlatformStand = true
+
+		bodyVelocity = Instance.new("BodyVelocity", root)
+		bodyVelocity.MaxForce = Vector3.new(9e9,9e9,9e9)
+
+		bodyGyro = Instance.new("BodyGyro", root)
+		bodyGyro.MaxTorque = Vector3.new(9e9,9e9,9e9)
+
+		flyConnection = RunService.RenderStepped:Connect(function()
+			local cam = workspace.CurrentCamera
+			bodyVelocity.Velocity = cam.CFrame:VectorToWorldSpace(moveVector) * speed
+			bodyGyro.CFrame = cam.CFrame
+		end)
+	else
+		if flyConnection then flyConnection:Disconnect() end
+		if bodyVelocity then bodyVelocity:Destroy() end
+		if bodyGyro then bodyGyro:Destroy() end
+		if humanoid then humanoid.PlatformStand = false end
+	end
+end)
+
+createButton("🚫 Noclip",function()
+	noclip = not noclip
+	if noclip then
+		noclipConnection = RunService.Stepped:Connect(function()
+			for _,v in pairs(player.Character:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.CanCollide=false
+				end
+			end
+		end)
+	else
+		if noclipConnection then noclipConnection:Disconnect() end
+	end
+end)
+
+-- ================= JOYSTICK VIRTUAL =================
+local joystickBase = Instance.new("Frame")
+joystickBase.Size = UDim2.fromScale(0.25,0.25)
+joystickBase.Position = UDim2.fromScale(0.08,0.65)
+joystickBase.BackgroundColor3 = Color3.fromRGB(60,0,0)
+joystickBase.Parent = gui
+Instance.new("UICorner", joystickBase).CornerRadius = UDim.new(1,0)
+
+local joystickKnob = Instance.new("Frame")
+joystickKnob.Size = UDim2.fromScale(0.5,0.5)
+joystickKnob.Position = UDim2.fromScale(0.25,0.25)
+joystickKnob.BackgroundColor3 = Color3.fromRGB(255,0,0)
+joystickKnob.Parent = joystickBase
+Instance.new("UICorner", joystickKnob).CornerRadius = UDim.new(1,0)
+
+local dragging = false
+
+joystickBase.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+		joystickKnob.Position = UDim2.fromScale(0.25,0.25)
+		moveVector = Vector3.zero
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.Touch then
+		local delta = (input.Position - joystickBase.AbsolutePosition)
+		local radius = joystickBase.AbsoluteSize.X/2
+		local center = Vector2.new(radius,radius)
+		local offset = delta - center
+		offset = Vector2.new(
+			math.clamp(offset.X,-radius,radius),
+			math.clamp(offset.Y,-radius,radius)
+		)
+
+		joystickKnob.Position = UDim2.new(
+			0.5 + offset.X/joystickBase.AbsoluteSize.X,
+			0,
+			0.5 + offset.Y/joystickBase.AbsoluteSize.Y,
+			0
+		)
+
+		moveVector = Vector3.new(offset.X/radius,0,offset.Y/radius)
+	end
+end)
+
+-- RESPAWN
+player.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	humanoid.WalkSpeed = walkSpeed
+	humanoid.JumpPower = jumpPower
+end)
