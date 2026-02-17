@@ -1,5 +1,5 @@
 -- ========================================
--- 🩸 CATHUD MOBILE PRO (RESPONSIVO)
+-- 🩸 CATHUD MOBILE PRO - FINAL
 -- ========================================
 
 local Players = game:GetService("Players")
@@ -20,6 +20,7 @@ local bodyVelocity, bodyGyro
 local flyConnection, noclipConnection
 
 local moveVector = Vector3.zero
+local vertical = 0
 
 -- ================= GUI BASE =================
 local gui = Instance.new("ScreenGui")
@@ -27,7 +28,7 @@ gui.Name = "CATHUD_MOBILE_PRO"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- ================= BOTÃO FLUTUANTE =================
+-- ================= BOTÃO HUD =================
 local hudIcon = Instance.new("TextButton")
 hudIcon.Size = UDim2.fromScale(0.1,0.07)
 hudIcon.Position = UDim2.fromScale(0.88,0.45)
@@ -37,7 +38,7 @@ hudIcon.TextScaled = true
 hudIcon.Parent = gui
 Instance.new("UICorner", hudIcon).CornerRadius = UDim.new(1,0)
 
--- ================= HUD RESPONSIVO =================
+-- ================= HUD =================
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.fromScale(0.9,0.8)
 mainFrame.Position = UDim2.fromScale(0.5,0.5)
@@ -51,13 +52,12 @@ hudIcon.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 end)
 
--- ================= LAYOUT AUTOMÁTICO =================
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0.03,0)
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 layout.Parent = mainFrame
 
--- ================= SLIDER RESPONSIVO =================
+-- ================= SLIDER =================
 local function createSlider(minValue,maxValue,value,text,callback)
 
 	local container = Instance.new("Frame")
@@ -109,7 +109,6 @@ local function createSlider(minValue,maxValue,value,text,callback)
 				bar.AbsoluteSize.X,0,1)
 
 			local newValue = math.floor(minValue + (maxValue-minValue)*percent)
-
 			handle.Position = UDim2.new(percent,0,0.5,0)
 			label.Text = text.." "..newValue
 			callback(newValue)
@@ -117,7 +116,6 @@ local function createSlider(minValue,maxValue,value,text,callback)
 	end)
 end
 
--- Criar sliders
 createSlider(10,200,speed,"Velocidade Voo:",function(v) speed=v end)
 createSlider(8,100,walkSpeed,"Velocidade Andar:",function(v)
 	walkSpeed=v
@@ -157,7 +155,10 @@ createButton("🛫 Fly",function()
 
 		flyConnection = RunService.RenderStepped:Connect(function()
 			local cam = workspace.CurrentCamera
-			bodyVelocity.Velocity = cam.CFrame:VectorToWorldSpace(moveVector) * speed
+			local direction = cam.CFrame:VectorToWorldSpace(
+				Vector3.new(moveVector.X, vertical, moveVector.Z)
+			)
+			bodyVelocity.Velocity = direction * speed
 			bodyGyro.CFrame = cam.CFrame
 		end)
 	else
@@ -183,7 +184,7 @@ createButton("🚫 Noclip",function()
 	end
 end)
 
--- ================= JOYSTICK VIRTUAL =================
+-- ================= JOYSTICK =================
 local joystickBase = Instance.new("Frame")
 joystickBase.Size = UDim2.fromScale(0.25,0.25)
 joystickBase.Position = UDim2.fromScale(0.08,0.65)
@@ -192,8 +193,8 @@ joystickBase.Parent = gui
 Instance.new("UICorner", joystickBase).CornerRadius = UDim.new(1,0)
 
 local joystickKnob = Instance.new("Frame")
-joystickKnob.Size = UDim2.fromScale(0.5,0.5)
-joystickKnob.Position = UDim2.fromScale(0.25,0.25)
+joystickKnob.Size = UDim2.fromScale(0.45,0.45)
+joystickKnob.Position = UDim2.fromScale(0.275,0.275)
 joystickKnob.BackgroundColor3 = Color3.fromRGB(255,0,0)
 joystickKnob.Parent = joystickBase
 Instance.new("UICorner", joystickKnob).CornerRadius = UDim.new(1,0)
@@ -209,21 +210,20 @@ end)
 UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.Touch then
 		dragging = false
-		joystickKnob.Position = UDim2.fromScale(0.25,0.25)
+		joystickKnob.Position = UDim2.fromScale(0.275,0.275)
 		moveVector = Vector3.zero
 	end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 	if dragging and input.UserInputType == Enum.UserInputType.Touch then
-		local delta = (input.Position - joystickBase.AbsolutePosition)
+		local center = joystickBase.AbsolutePosition + joystickBase.AbsoluteSize/2
+		local offset = input.Position - center
 		local radius = joystickBase.AbsoluteSize.X/2
-		local center = Vector2.new(radius,radius)
-		local offset = delta - center
-		offset = Vector2.new(
-			math.clamp(offset.X,-radius,radius),
-			math.clamp(offset.Y,-radius,radius)
-		)
+
+		if offset.Magnitude > radius then
+			offset = offset.Unit * radius
+		end
 
 		joystickKnob.Position = UDim2.new(
 			0.5 + offset.X/joystickBase.AbsoluteSize.X,
@@ -232,9 +232,35 @@ UserInputService.InputChanged:Connect(function(input)
 			0
 		)
 
-		moveVector = Vector3.new(offset.X/radius,0,offset.Y/radius)
+		moveVector = Vector3.new(
+			offset.X/radius,
+			0,
+			-offset.Y/radius
+		)
 	end
 end)
+
+-- ================= SUBIR/DESCER =================
+local function createVerticalButton(text,xPos,dir)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(0.12,0.12)
+	btn.Position = UDim2.fromScale(xPos,0.7)
+	btn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+	btn.Text = text
+	btn.TextScaled = true
+	btn.Parent = gui
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(1,0)
+
+	btn.TouchStarted:Connect(function()
+		vertical = dir
+	end)
+	btn.TouchEnded:Connect(function()
+		vertical = 0
+	end)
+end
+
+createVerticalButton("⬆",0.8,1)
+createVerticalButton("⬇",0.8, -1)
 
 -- RESPAWN
 player.CharacterAdded:Connect(function(char)
